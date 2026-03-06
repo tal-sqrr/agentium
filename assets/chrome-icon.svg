@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <clipPath id="iconmask">
+      <rect x="52" y="52" width="920" height="920" rx="220" ry="220"/>
+    </clipPath>
+    <clipPath id="chromeclip">
+      <circle cx="512" cy="512" r="414"/>
+    </clipPath>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#000" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+  
+  <rect x="52" y="52" width="920" height="920" rx="220" ry="220" 
+        fill="white" filter="url(#shadow)"/>
+  
+  <g clip-path="url(#iconmask)">
+    <rect x="0" y="0" width="1024" height="1024" fill="white"/>
+    <g clip-path="url(#chromeclip)">
+            <path d="M669.6,421.0 L512.0,98.0 A414,414,0,0,1,870.5,719.0 L512.0,694.0 A182,182,0,0,0,669.6,421.0" fill="#C76130"/>
+      <path d="M512.0,694.0 L870.5,719.0 A414,414,0,0,1,153.5,719.0 L354.4,421.0 A182,182,0,0,0,512.0,694.0" fill="#E8A87C"/>
+      <path d="M354.4,421.0 L153.5,719.0 A414,414,0,0,1,512.0,98.0 L669.6,421.0 A182,182,0,0,0,354.4,421.0" fill="#D97757"/>
+    </g>
+    <circle cx="512" cy="512" r="155" fill="#D97757"/>
+    <circle cx="512" cy="512" r="117" fill="white"/>
+  </g>
+</svg>
