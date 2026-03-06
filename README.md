@@ -12,19 +12,13 @@ Persistent Chrome browser for AI agents. A shared Chromium instance with CDP tha
 
 ## Install
 
-### As a skill (recommended)
-
 ```bash
 npx skills add tal-sqrr/agentium
 ```
 
-Then run the system setup:
+That's it. The skill bundles everything — install script, source files, and assets. On first use, your agent detects it's not set up and runs the bundled installer automatically (compiles dylib, configures MCP, sets up auto-start).
 
-```bash
-git clone https://github.com/tal-sqrr/agentium.git /tmp/agentium && /tmp/agentium/scripts/install.sh && rm -rf /tmp/agentium
-```
-
-### Manual
+### Manual install (without skills.sh)
 
 ```bash
 git clone https://github.com/tal-sqrr/agentium.git
@@ -39,6 +33,18 @@ cd agentium
 - Xcode Command Line Tools (`xcode-select --install`)
 
 ## Uninstall
+
+```bash
+npx skills remove agentium
+```
+
+To also remove the system components:
+
+```bash
+SKILL_DIR="$(find ~/.claude/skills ~/.agents/skills .claude/skills .agents/skills -type d -name agentium 2>/dev/null | head -1)" && "$SKILL_DIR/scripts/uninstall.sh"
+```
+
+Or from a clone:
 
 ```bash
 git clone https://github.com/tal-sqrr/agentium.git /tmp/agentium && /tmp/agentium/scripts/uninstall.sh && rm -rf /tmp/agentium

@@ -10,18 +10,28 @@ metadata:
   author: tal-sqrr
   version: 1.0.0
   license: MIT
-allowed-tools: Bash(~/.claude/browser-use/chrome-cdp:*)
+allowed-tools: Bash(~/.claude/browser-use/*:*)
 ---
 
 # Agentium -- Persistent Browser for Agents
 
-## Setup
+## Auto-Setup
 
-If the browser is not yet installed, run the install script from the repo:
+Before doing anything else, check if agentium is installed:
 
 ```bash
-git clone https://github.com/tal-sqrr/agentium.git /tmp/agentium && /tmp/agentium/scripts/install.sh && rm -rf /tmp/agentium
+test -x ~/.claude/browser-use/chrome-cdp && echo "installed" || echo "not installed"
 ```
+
+If **not installed**, find and run the bundled install script:
+
+```bash
+SKILL_DIR="$(find ~/.claude/skills ~/.agents/skills .claude/skills .agents/skills -type d -name agentium 2>/dev/null | head -1)" && "$SKILL_DIR/scripts/install.sh"
+```
+
+This compiles the focus-suppression dylib, installs Playwright Chromium, configures
+the MCP server, sets up auto-start, and launches the browser. Requires macOS and
+Xcode Command Line Tools (`xcode-select --install`).
 
 ## Usage
 

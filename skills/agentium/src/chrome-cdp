@@ -1,0 +1,113 @@
+#!/bin/bash
+# Launches a persistent Chrome instance with CDP remote debugging.
+# Multiple Playwright MCP sessions can connect via ws://localhost:9222.
+
+PORT=9222
+USER_DATA_DIR="$HOME/.claude/playwright-persistent"
+NOFOCUS_DYLIB="$HOME/.claude/browser-use/nofocus.dylib"
+PIDFILE="$HOME/.claude/chrome-cdp.pid"
+
+# Use Playwright's Chromium (ad-hoc signed, allows DYLD injection).
+# Google Chrome's hardened runtime strips DYLD_INSERT_LIBRARIES.
+PW_CHROMIUM_DIR="$HOME/Library/Caches/ms-playwright"
+CHROME=$(find "$PW_CHROMIUM_DIR" -name "Google Chrome for Testing" -path "*/MacOS/*" 2>/dev/null | sort -V | tail -1)
+if [ -z "$CHROME" ]; then
+  echo "Playwright Chromium not found. Run: npx playwright install chromium"
+  exit 1
+fi
+
+case "${1:-start}" in
+  start)
+    # Check if already running
+    if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+      echo "Chrome CDP already running (PID $(cat "$PIDFILE")) on port $PORT"
+      exit 0
+    fi
+
+    # Remove stale singleton locks (left behind if Chrome crashed or was
+    # killed, or if regular Google Chrome grabbed the profile directory).
+    rm -f "$USER_DATA_DIR/SingletonLock" \
+          "$USER_DATA_DIR/SingletonSocket" \
+          "$USER_DATA_DIR/SingletonCookie" 2>/dev/null
+
+    # Patch app icon (auto-heals after Playwright updates)
+    CUSTOM_ICON="$HOME/.claude/browser-use/chrome-icon.icns"
+    APP_RESOURCES="$(dirname "$(dirname "$CHROME")")/Resources"
+    APP_PLIST="$(dirname "$(dirname "$CHROME")")/Info.plist"
+    if [ -f "$CUSTOM_ICON" ]; then
+      cp "$CUSTOM_ICON" "$APP_RESOURCES/app.icns" 2>/dev/null
+      # Remove asset catalog icon so macOS falls back to app.icns
+      [ -f "$APP_RESOURCES/Assets.car" ] && \
+        mv "$APP_RESOURCES/Assets.car" "$APP_RESOURCES/Assets.car.bak" 2>/dev/null
+      # Remove CFBundleIconName (points to asset catalog)
+      /usr/libexec/PlistBuddy -c "Delete :CFBundleIconName" "$APP_PLIST" 2>/dev/null
+    fi
+
+    # Patch app name in Info.plist (auto-heals after Playwright updates)
+    /usr/libexec/PlistBuddy -c "Set :CFBundleName 'Chrome for Claude'" "$APP_PLIST" 2>/dev/null
+    /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 'Chrome for Claude'" "$APP_PLIST" 2>/dev/null
+    /usr/libexec/PlistBuddy -c "Set :LSHasLocalizedDisplayName false" "$APP_PLIST" 2>/dev/null
+
+    # Patch app name in all localized InfoPlist.strings
+    APP_RESOURCES="$(dirname "$(dirname "$CHROME")")/Resources"
+    for lproj in "$APP_RESOURCES/"*.lproj; do
+      sf="$lproj/InfoPlist.strings"
+      [ -f "$sf" ] || continue
+      plutil -convert xml1 "$sf" 2>/dev/null
+      /usr/libexec/PlistBuddy -c "Add :CFBundleName string 'Chrome for Claude'" "$sf" 2>/dev/null
+      /usr/libexec/PlistBuddy -c "Set :CFBundleName 'Chrome for Claude'" "$sf" 2>/dev/null
+      /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string 'Chrome for Claude'" "$sf" 2>/dev/null
+      /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 'Chrome for Claude'" "$sf" 2>/dev/null
+    done
+
+    # Flush Launch Services cache so macOS picks up patched name/icon
+    APP_BUNDLE="$(dirname "$(dirname "$(dirname "$CHROME")")")"
+    /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP_BUNDLE" 2>/dev/null
+
+    DYLD_INSERT_LIBRARIES="$NOFOCUS_DYLIB" "$CHROME" \
+      --remote-debugging-port=$PORT \
+      --user-data-dir="$USER_DATA_DIR" \
+      --lang=en \
+      --no-first-run \
+      --no-default-browser-check \
+      --disable-infobars \
+      --disable-background-timer-throttling \
+      --disable-backgrounding-occluded-windows \
+      --disable-renderer-backgrounding \
+      --use-mock-keychain \
+      &>/dev/null &
+
+    echo $! > "$PIDFILE"
+    echo "Chrome CDP started (PID $!) on port $PORT"
+    ;;
+
+  stop)
+    if [ -f "$PIDFILE" ]; then
+      kill "$(cat "$PIDFILE")" 2>/dev/null
+      rm -f "$PIDFILE"
+      echo "Chrome CDP stopped"
+    else
+      echo "No Chrome CDP pidfile found"
+    fi
+    ;;
+
+  status)
+    if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+      echo "running (PID $(cat "$PIDFILE"))"
+    else
+      echo "stopped"
+      rm -f "$PIDFILE" 2>/dev/null
+    fi
+    ;;
+
+  restart)
+    "$0" stop
+    sleep 1
+    "$0" start
+    ;;
+
+  *)
+    echo "Usage: $0 {start|stop|status|restart}"
+    exit 1
+    ;;
+esac
