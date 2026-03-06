@@ -6,9 +6,10 @@ Persistent Chrome browser for AI agents. A shared Chromium instance with CDP tha
 
 - **Shared browser** -- multiple agent sessions use one Chrome instance via CDP on port 9222
 - **Focus suppression** -- injected dylib prevents Chrome from stealing window focus
-- **Custom branding** -- "Chrome for Claude" name and icon, auto-heals after Playwright updates
+- **Custom branding** -- "Agentium Browser" name and icon, auto-heals after Playwright updates
 - **Auto-start** -- LaunchAgent starts the browser on login
 - **Persistent profile** -- cookies, sessions, and history survive restarts
+- **Agent-agnostic** -- auto-detects and configures Claude Code, Cursor, Windsurf, Amp, and more
 
 ## Install
 
@@ -41,7 +42,7 @@ npx skills remove agentium
 To also remove the system components:
 
 ```bash
-SKILL_DIR="$(find ~/.claude/skills ~/.agents/skills .claude/skills .agents/skills -type d -name agentium 2>/dev/null | head -1)" && "$SKILL_DIR/scripts/uninstall.sh"
+~/.agentium/uninstall.sh
 ```
 
 Or from a clone:

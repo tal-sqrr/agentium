@@ -1,18 +1,40 @@
 #!/bin/bash
 set -euo pipefail
 
-# Agentium installer — sets up persistent Chrome CDP for Claude Code.
+# Agentium installer — sets up persistent Chrome CDP for AI agents.
 # Works when run from the skill directory (bundled via npx skills add)
 # or from the repo root.
+#
+# Usage: install.sh [--claude] [--cursor] [--windsurf] [--amp] [--all] [--skip-mcp]
+#   No flags = interactive prompt to choose agents
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 INSTALL_DIR="$HOME/.agentium"
 LAUNCH_AGENT="$HOME/Library/LaunchAgents/com.agentium.chrome-cdp.plist"
-SETTINGS_FILE="$HOME/.claude/settings.json"
 PW_CACHE="$HOME/Library/Caches/ms-playwright"
 
 STEPS=7
+
+# --- Parse flags ---
+AGENTS=()
+SKIP_MCP=false
+INTERACTIVE=true
+
+for arg in "$@"; do
+  case "$arg" in
+    --claude)   AGENTS+=("claude");   INTERACTIVE=false ;;
+    --cursor)   AGENTS+=("cursor");   INTERACTIVE=false ;;
+    --windsurf) AGENTS+=("windsurf"); INTERACTIVE=false ;;
+    --amp)      AGENTS+=("amp");      INTERACTIVE=false ;;
+    --all)      AGENTS+=("all");      INTERACTIVE=false ;;
+    --skip-mcp) SKIP_MCP=true;        INTERACTIVE=false ;;
+    --help|-h)
+      echo "Usage: install.sh [--claude] [--cursor] [--windsurf] [--amp] [--all] [--skip-mcp]"
+      echo "  No flags = interactive prompt"
+      exit 0 ;;
+  esac
+done
 
 # ------------------------------------------------------------------
 # 1. Copy core files
@@ -36,7 +58,9 @@ cp "$SRC_DIR/chrome-cdp"          "$INSTALL_DIR/chrome-cdp"
 cp "$SRC_DIR/nofocus.m"           "$INSTALL_DIR/nofocus.m"
 cp "$ASSETS_DIR/chrome-icon.svg"  "$INSTALL_DIR/chrome-icon.svg"
 cp "$ASSETS_DIR/chrome-icon.icns" "$INSTALL_DIR/chrome-icon.icns"
+cp "$SCRIPT_DIR/uninstall.sh"     "$INSTALL_DIR/uninstall.sh"
 chmod +x "$INSTALL_DIR/chrome-cdp"
+chmod +x "$INSTALL_DIR/uninstall.sh"
 
 # ------------------------------------------------------------------
 # 2. Compile nofocus.dylib
@@ -103,18 +127,94 @@ launchctl load "$LAUNCH_AGENT"
 echo "  LaunchAgent loaded."
 
 # ------------------------------------------------------------------
-# 5. Merge Playwright MCP config into settings.json
+# 5. Configure Playwright MCP
 # ------------------------------------------------------------------
-echo "[5/$STEPS] Configuring Playwright MCP in $SETTINGS_FILE ..."
+echo "[5/$STEPS] Configuring Playwright MCP ..."
 
 MCP_COMMAND="npx"
 MCP_ARGS='["@playwright/mcp@latest","--cdp-endpoint","http://localhost:9222"]'
 MCP_ENV='{"PLAYWRIGHT_MCP_CDP_ENDPOINT":"http://localhost:9222"}'
 
-merge_with_node() {
-  node -e "
+# Agent registry: key -> "Display Name|config path"
+declare -A AGENT_REGISTRY=(
+  [claude]="Claude Code|$HOME/.claude/settings.json"
+  [cursor]="Cursor|$HOME/.cursor/mcp.json"
+  [windsurf]="Windsurf|$HOME/.codeium/windsurf/mcp_config.json"
+  [amp]="Amp|$HOME/.amp/mcp.json"
+)
+AGENT_ORDER=(claude cursor windsurf amp)
+
+# Detect which agents are installed
+declare -a DETECTED=()
+for key in "${AGENT_ORDER[@]}"; do
+  config_path="${AGENT_REGISTRY[$key]#*|}"
+  config_dir="$(dirname "$config_path")"
+  [ -d "$config_dir" ] && DETECTED+=("$key")
+done
+
+# Resolve which agents to configure
+declare -a SELECTED=()
+
+if [ "$SKIP_MCP" = true ]; then
+  echo "  Skipped (--skip-mcp)."
+elif [ ${#AGENTS[@]} -gt 0 ]; then
+  # Flags provided
+  for a in "${AGENTS[@]}"; do
+    if [ "$a" = "all" ]; then
+      SELECTED=("${DETECTED[@]}")
+      break
+    elif [ -n "${AGENT_REGISTRY[$a]+x}" ]; then
+      SELECTED+=("$a")
+    else
+      echo "  WARNING: Unknown agent '$a', skipping." >&2
+    fi
+  done
+elif [ "$INTERACTIVE" = true ] && [ -t 0 ]; then
+  # Interactive prompt
+  if [ ${#DETECTED[@]} -eq 0 ]; then
+    echo "  No supported agents detected."
+  else
+    echo ""
+    echo "  Detected agents:"
+    for i in "${!DETECTED[@]}"; do
+      key="${DETECTED[$i]}"
+      name="${AGENT_REGISTRY[$key]%%|*}"
+      path="${AGENT_REGISTRY[$key]#*|}"
+      echo "    $((i+1))) $name ($path)"
+    done
+    echo "    a) All of the above"
+    echo "    s) Skip — I'll configure MCP myself"
+    echo ""
+    read -rp "  Configure MCP for [1-${#DETECTED[@]}/a/s]: " choice
+
+    case "$choice" in
+      a|A) SELECTED=("${DETECTED[@]}") ;;
+      s|S) ;;
+      *)
+        # Support comma-separated numbers like "1,3"
+        IFS=',' read -ra picks <<< "$choice"
+        for p in "${picks[@]}"; do
+          p="$(echo "$p" | tr -d ' ')"
+          if [[ "$p" =~ ^[0-9]+$ ]] && [ "$p" -ge 1 ] && [ "$p" -le ${#DETECTED[@]} ]; then
+            SELECTED+=("${DETECTED[$((p-1))]}")
+          fi
+        done
+        ;;
+    esac
+  fi
+else
+  # Non-interactive, no flags — configure all detected
+  SELECTED=("${DETECTED[@]}")
+fi
+
+merge_mcp_config() {
+  local config_file="$1"
+  mkdir -p "$(dirname "$config_file")"
+
+  if command -v node &>/dev/null; then
+    node -e "
 const fs = require('fs');
-const path = '$SETTINGS_FILE';
+const path = '$config_file';
 let settings = {};
 try { settings = JSON.parse(fs.readFileSync(path, 'utf8')); } catch {}
 if (!settings.mcpServers) settings.mcpServers = {};
@@ -125,33 +225,38 @@ settings.mcpServers.playwright = {
 };
 fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\n');
 "
-}
-
-merge_with_jq() {
-  local tmp
-  tmp="$(mktemp)"
-  if [ -f "$SETTINGS_FILE" ]; then
-    jq --argjson args "$MCP_ARGS" \
-       --argjson env "$MCP_ENV" \
-       '.mcpServers.playwright = {command: "npx", args: $args, env: $env}' \
-       "$SETTINGS_FILE" > "$tmp"
+  elif command -v jq &>/dev/null; then
+    local tmp
+    tmp="$(mktemp)"
+    if [ -f "$config_file" ]; then
+      jq --argjson args "$MCP_ARGS" \
+         --argjson env "$MCP_ENV" \
+         '.mcpServers.playwright = {command: "npx", args: $args, env: $env}' \
+         "$config_file" > "$tmp"
+    else
+      jq -n --argjson args "$MCP_ARGS" \
+            --argjson env "$MCP_ENV" \
+            '{mcpServers: {playwright: {command: "npx", args: $args, env: $env}}}' > "$tmp"
+    fi
+    mv "$tmp" "$config_file"
   else
-    jq -n --argjson args "$MCP_ARGS" \
-          --argjson env "$MCP_ENV" \
-          '{mcpServers: {playwright: {command: "npx", args: $args, env: $env}}}' > "$tmp"
+    echo "  WARNING: Neither node nor jq found." >&2
+    return 1
   fi
-  mv "$tmp" "$SETTINGS_FILE"
 }
 
-mkdir -p "$(dirname "$SETTINGS_FILE")"
-if command -v node &>/dev/null; then
-  merge_with_node
-elif command -v jq &>/dev/null; then
-  merge_with_jq
-else
-  echo "  WARNING: Neither node nor jq found. Please add Playwright MCP config manually." >&2
+if [ ${#SELECTED[@]} -gt 0 ]; then
+  for key in "${SELECTED[@]}"; do
+    name="${AGENT_REGISTRY[$key]%%|*}"
+    path="${AGENT_REGISTRY[$key]#*|}"
+    if merge_mcp_config "$path"; then
+      echo "  ✓ $name ($path)"
+    fi
+  done
+elif [ "$SKIP_MCP" != true ]; then
+  echo "  No agents configured. Add the Playwright MCP config manually to your agent:"
+  echo "    { \"mcpServers\": { \"playwright\": { \"command\": \"npx\", \"args\": $MCP_ARGS } } }"
 fi
-echo "  MCP config merged."
 
 # ------------------------------------------------------------------
 # 6. Start the browser
@@ -167,7 +272,6 @@ echo "[7/$STEPS] Done!"
 echo ""
 echo "  Installed to:   $INSTALL_DIR"
 echo "  LaunchAgent:    $LAUNCH_AGENT"
-echo "  Settings:       $SETTINGS_FILE"
 echo "  Chrome CDP:     http://localhost:9222"
 echo ""
 echo "  Chrome will auto-start on login via LaunchAgent."

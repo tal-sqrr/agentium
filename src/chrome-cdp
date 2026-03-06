@@ -44,8 +44,8 @@ case "${1:-start}" in
     fi
 
     # Patch app name in Info.plist (auto-heals after Playwright updates)
-    /usr/libexec/PlistBuddy -c "Set :CFBundleName 'Chrome for Claude'" "$APP_PLIST" 2>/dev/null
-    /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 'Chrome for Claude'" "$APP_PLIST" 2>/dev/null
+    /usr/libexec/PlistBuddy -c "Set :CFBundleName 'Agentium Browser'" "$APP_PLIST" 2>/dev/null
+    /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 'Agentium Browser'" "$APP_PLIST" 2>/dev/null
     /usr/libexec/PlistBuddy -c "Set :LSHasLocalizedDisplayName false" "$APP_PLIST" 2>/dev/null
 
     # Patch app name in all localized InfoPlist.strings
@@ -54,10 +54,10 @@ case "${1:-start}" in
       sf="$lproj/InfoPlist.strings"
       [ -f "$sf" ] || continue
       plutil -convert xml1 "$sf" 2>/dev/null
-      /usr/libexec/PlistBuddy -c "Add :CFBundleName string 'Chrome for Claude'" "$sf" 2>/dev/null
-      /usr/libexec/PlistBuddy -c "Set :CFBundleName 'Chrome for Claude'" "$sf" 2>/dev/null
-      /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string 'Chrome for Claude'" "$sf" 2>/dev/null
-      /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 'Chrome for Claude'" "$sf" 2>/dev/null
+      /usr/libexec/PlistBuddy -c "Add :CFBundleName string 'Agentium Browser'" "$sf" 2>/dev/null
+      /usr/libexec/PlistBuddy -c "Set :CFBundleName 'Agentium Browser'" "$sf" 2>/dev/null
+      /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string 'Agentium Browser'" "$sf" 2>/dev/null
+      /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 'Agentium Browser'" "$sf" 2>/dev/null
     done
 
     # Flush Launch Services cache so macOS picks up patched name/icon

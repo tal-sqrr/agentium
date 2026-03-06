@@ -50,7 +50,7 @@ The browser is a persistent Chrome instance with Chrome DevTools Protocol (CDP) 
 
 - Uses Playwright's Chromium (ad-hoc signed, allows dylib injection)
 - `nofocus.dylib` suppresses Chrome from stealing window focus
-- Custom icon and name ("Chrome for Claude") auto-heal after Playwright updates
+- Custom icon and name ("Agentium Browser") auto-heal after Playwright updates
 - Multiple agent sessions share the same browser via CDP websocket
 - Profile persists at `~/.agentium/chrome-profile/`
 - Logs at `/tmp/agentium.log`

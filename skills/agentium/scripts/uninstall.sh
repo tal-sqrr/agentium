@@ -24,23 +24,44 @@ else
   echo "[2/4] No LaunchAgent found"
 fi
 
-# 3. Remove MCP config from Claude settings
-SETTINGS="$HOME/.claude/settings.json"
-if [ -f "$SETTINGS" ]; then
+# 3. Remove MCP config from all agents
+remove_mcp_config() {
+  local config_file="$1"
+  local agent_name="$2"
+  [ -f "$config_file" ] || return 1
   if command -v node &>/dev/null; then
     node -e "
       const fs = require('fs');
-      const settings = JSON.parse(fs.readFileSync('$SETTINGS', 'utf8'));
+      const settings = JSON.parse(fs.readFileSync('$config_file', 'utf8'));
       if (settings.mcpServers) delete settings.mcpServers.playwright;
-      fs.writeFileSync('$SETTINGS', JSON.stringify(settings, null, 2) + '\n');
+      fs.writeFileSync('$config_file', JSON.stringify(settings, null, 2) + '\n');
     "
   elif command -v jq &>/dev/null; then
     TMP=$(mktemp)
-    jq 'del(.mcpServers.playwright)' "$SETTINGS" > "$TMP" && mv "$TMP" "$SETTINGS"
+    jq 'del(.mcpServers.playwright)' "$config_file" > "$TMP" && mv "$TMP" "$config_file"
+  else
+    return 1
   fi
-  echo "[3/4] Playwright MCP config removed from Claude settings"
+  echo "  ✓ $agent_name ($config_file)"
+}
+
+REMOVED=0
+for pair in \
+  "$HOME/.claude/settings.json|Claude Code" \
+  "$HOME/.cursor/mcp.json|Cursor" \
+  "$HOME/.codeium/windsurf/mcp_config.json|Windsurf" \
+  "$HOME/.amp/mcp.json|Amp"; do
+  config_file="${pair%%|*}"
+  agent_name="${pair##*|}"
+  if remove_mcp_config "$config_file" "$agent_name"; then
+    REMOVED=$((REMOVED + 1))
+  fi
+done
+
+if [ "$REMOVED" -gt 0 ]; then
+  echo "[3/4] Playwright MCP config removed from $REMOVED agent(s)"
 else
-  echo "[3/4] No Claude settings found"
+  echo "[3/4] No agent MCP configs found"
 fi
 
 # 4. Remove agentium directory
