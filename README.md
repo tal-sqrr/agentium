@@ -16,7 +16,7 @@ Persistent Chrome browser for AI agents. A shared Chromium instance with CDP tha
 npx skills add tal-sqrr/agentium
 ```
 
-That's it. The skill bundles everything — install script, source files, and assets. On first use, your agent detects it's not set up and runs the bundled installer automatically (compiles dylib, configures MCP, sets up auto-start).
+That's it. The skill bundles everything — install script, source files, and assets. On first use, your agent runs the bundled installer (compiles dylib, configures MCP, sets up auto-start). Everything installs to `~/.agentium/`.
 
 ### Manual install (without skills.sh)
 

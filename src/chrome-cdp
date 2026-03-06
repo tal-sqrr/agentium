@@ -3,9 +3,9 @@
 # Multiple Playwright MCP sessions can connect via ws://localhost:9222.
 
 PORT=9222
-USER_DATA_DIR="$HOME/.claude/playwright-persistent"
-NOFOCUS_DYLIB="$HOME/.claude/browser-use/nofocus.dylib"
-PIDFILE="$HOME/.claude/chrome-cdp.pid"
+USER_DATA_DIR="$HOME/.agentium/chrome-profile"
+NOFOCUS_DYLIB="$HOME/.agentium/nofocus.dylib"
+PIDFILE="$HOME/.agentium/chrome-cdp.pid"
 
 # Use Playwright's Chromium (ad-hoc signed, allows DYLD injection).
 # Google Chrome's hardened runtime strips DYLD_INSERT_LIBRARIES.
@@ -31,7 +31,7 @@ case "${1:-start}" in
           "$USER_DATA_DIR/SingletonCookie" 2>/dev/null
 
     # Patch app icon (auto-heals after Playwright updates)
-    CUSTOM_ICON="$HOME/.claude/browser-use/chrome-icon.icns"
+    CUSTOM_ICON="$HOME/.agentium/chrome-icon.icns"
     APP_RESOURCES="$(dirname "$(dirname "$CHROME")")/Resources"
     APP_PLIST="$(dirname "$(dirname "$CHROME")")/Info.plist"
     if [ -f "$CUSTOM_ICON" ]; then

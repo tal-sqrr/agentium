@@ -5,7 +5,7 @@ echo "=== Agentium Uninstaller ==="
 echo ""
 
 # 1. Stop the browser
-PIDFILE="$HOME/.claude/chrome-cdp.pid"
+PIDFILE="$HOME/.agentium/chrome-cdp.pid"
 if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
   kill "$(cat "$PIDFILE")" 2>/dev/null
   rm -f "$PIDFILE"
@@ -15,7 +15,7 @@ else
 fi
 
 # 2. Unload and remove LaunchAgent
-PLIST="$HOME/Library/LaunchAgents/com.claude.chrome-cdp.plist"
+PLIST="$HOME/Library/LaunchAgents/com.agentium.chrome-cdp.plist"
 if [ -f "$PLIST" ]; then
   launchctl unload "$PLIST" 2>/dev/null || true
   rm -f "$PLIST"
@@ -43,17 +43,17 @@ else
   echo "[3/4] No Claude settings found"
 fi
 
-# 4. Remove browser-use directory
-INSTALL_DIR="$HOME/.claude/browser-use"
+# 4. Remove agentium directory
+INSTALL_DIR="$HOME/.agentium"
 if [ -d "$INSTALL_DIR" ]; then
   rm -rf "$INSTALL_DIR"
   echo "[4/4] Removed $INSTALL_DIR"
 else
-  echo "[4/4] No browser-use directory found"
+  echo "[4/4] No agentium directory found"
 fi
 
 echo ""
 echo "=== Uninstall complete ==="
 echo "Note: Playwright Chromium cache and browser profile were preserved."
 echo "  Remove Chromium:  rm -rf ~/Library/Caches/ms-playwright"
-echo "  Remove profile:   rm -rf ~/.claude/playwright-persistent"
+echo "  Remove profile:   rm -rf ~/.agentium/chrome-profile"

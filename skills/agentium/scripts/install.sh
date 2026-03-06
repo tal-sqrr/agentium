@@ -7,8 +7,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
-INSTALL_DIR="$HOME/.claude/browser-use"
-LAUNCH_AGENT="$HOME/Library/LaunchAgents/com.claude.chrome-cdp.plist"
+INSTALL_DIR="$HOME/.agentium"
+LAUNCH_AGENT="$HOME/Library/LaunchAgents/com.agentium.chrome-cdp.plist"
 SETTINGS_FILE="$HOME/.claude/settings.json"
 PW_CACHE="$HOME/Library/Caches/ms-playwright"
 
@@ -81,7 +81,7 @@ cat > "$LAUNCH_AGENT" <<PLIST
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.claude.chrome-cdp</string>
+    <string>com.agentium.chrome-cdp</string>
     <key>ProgramArguments</key>
     <array>
         <string>${INSTALL_DIR}/chrome-cdp</string>
@@ -92,9 +92,9 @@ cat > "$LAUNCH_AGENT" <<PLIST
     <key>KeepAlive</key>
     <false/>
     <key>StandardOutPath</key>
-    <string>/tmp/chrome-cdp.log</string>
+    <string>/tmp/agentium.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/chrome-cdp.log</string>
+    <string>/tmp/agentium.log</string>
 </dict>
 </plist>
 PLIST
@@ -171,4 +171,4 @@ echo "  Settings:       $SETTINGS_FILE"
 echo "  Chrome CDP:     http://localhost:9222"
 echo ""
 echo "  Chrome will auto-start on login via LaunchAgent."
-echo "  Manage manually: ~/.claude/browser-use/chrome-cdp {start|stop|status|restart}"
+echo "  Manage manually: ~/.agentium/chrome-cdp {start|stop|status|restart}"
