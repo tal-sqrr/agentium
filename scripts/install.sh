@@ -5,7 +5,7 @@ set -euo pipefail
 # Works when run from the skill directory (bundled via npx skills add)
 # or from the repo root.
 #
-# Usage: install.sh [--claude] [--cursor] [--windsurf] [--amp] [--all] [--skip-mcp]
+# Usage: install.sh [--claude] [--codex] [--cursor] [--windsurf] [--amp] [--all] [--skip-mcp]
 #   No flags = interactive prompt to choose agents
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -24,13 +24,14 @@ INTERACTIVE=true
 for arg in "$@"; do
   case "$arg" in
     --claude)   AGENTS+=("claude");   INTERACTIVE=false ;;
+    --codex)    AGENTS+=("codex");    INTERACTIVE=false ;;
     --cursor)   AGENTS+=("cursor");   INTERACTIVE=false ;;
     --windsurf) AGENTS+=("windsurf"); INTERACTIVE=false ;;
     --amp)      AGENTS+=("amp");      INTERACTIVE=false ;;
     --all)      AGENTS+=("all");      INTERACTIVE=false ;;
     --skip-mcp) SKIP_MCP=true;        INTERACTIVE=false ;;
     --help|-h)
-      echo "Usage: install.sh [--claude] [--cursor] [--windsurf] [--amp] [--all] [--skip-mcp]"
+      echo "Usage: install.sh [--claude] [--codex] [--cursor] [--windsurf] [--amp] [--all] [--skip-mcp]"
       echo "  No flags = interactive prompt"
       exit 0 ;;
   esac
@@ -138,11 +139,12 @@ MCP_ENV='{"PLAYWRIGHT_MCP_CDP_ENDPOINT":"http://localhost:9222"}'
 # Agent registry: key -> "Display Name|config path"
 declare -A AGENT_REGISTRY=(
   [claude]="Claude Code|$HOME/.claude/settings.json"
+  [codex]="Codex|$HOME/.codex/config.toml"
   [cursor]="Cursor|$HOME/.cursor/mcp.json"
   [windsurf]="Windsurf|$HOME/.codeium/windsurf/mcp_config.json"
   [amp]="Amp|$HOME/.amp/mcp.json"
 )
-AGENT_ORDER=(claude cursor windsurf amp)
+AGENT_ORDER=(claude codex cursor windsurf amp)
 
 # Detect which agents are installed
 declare -a DETECTED=()
@@ -245,11 +247,38 @@ fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\n');
   fi
 }
 
+configure_codex() {
+  # MCP via CLI
+  codex mcp remove playwright 2>/dev/null || true
+  codex mcp add playwright \
+    --env "PLAYWRIGHT_MCP_CDP_ENDPOINT=http://localhost:9222" \
+    -- npx @playwright/mcp@latest --cdp-endpoint http://localhost:9222
+  echo "  ✓ Codex MCP (codex mcp add)"
+
+  # Find SKILL.md — bundled layout has it at SKILL_DIR/SKILL.md,
+  # repo root layout has it at SKILL_DIR/skills/agentium/SKILL.md
+  local skill_md=""
+  if [ -f "$SKILL_DIR/SKILL.md" ]; then
+    skill_md="$SKILL_DIR/SKILL.md"
+  elif [ -f "$SKILL_DIR/skills/agentium/SKILL.md" ]; then
+    skill_md="$SKILL_DIR/skills/agentium/SKILL.md"
+  fi
+
+  if [ -n "$skill_md" ]; then
+    local codex_skill_dir="$HOME/.codex/skills/agentium"
+    mkdir -p "$codex_skill_dir"
+    cp "$skill_md" "$codex_skill_dir/SKILL.md"
+    echo "  ✓ Codex skill ($codex_skill_dir)"
+  fi
+}
+
 if [ ${#SELECTED[@]} -gt 0 ]; then
   for key in "${SELECTED[@]}"; do
     name="${AGENT_REGISTRY[$key]%%|*}"
     path="${AGENT_REGISTRY[$key]#*|}"
-    if merge_mcp_config "$path"; then
+    if [ "$key" = "codex" ]; then
+      configure_codex
+    elif merge_mcp_config "$path"; then
       echo "  ✓ $name ($path)"
     fi
   done
